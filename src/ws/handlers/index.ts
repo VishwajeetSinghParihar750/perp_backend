@@ -12,7 +12,6 @@ import {
   getOrderSchema,
 } from "../../validations/order.js";
 import { sendMessageOnWebSocket } from "../utils/messaging.js";
-import { HashSet } from "js-sdsl";
 import {
   subscribeEventSchema,
   unsubscribeEventSchema,
@@ -43,7 +42,7 @@ async function handleAddBalanceRequest(req: WS_REQUEST, ws: WebSocket) {
         sendMessageOnWebSocket(ws, {
           payload: null,
           requestId: req.rqeuestId,
-          type: "balance",
+          type: "balance_updated",
         });
     } catch (error) {
       sendMessageOnWebSocket(ws, {
@@ -274,21 +273,18 @@ async function handleGetBalanceRequest(req: WS_REQUEST, ws: WebSocket) {
 
 type SUBSCRIBED_EVENT = "depth_update_sol_usd" | "depth_update_btc_usd";
 
-let eventSubscriptions: Record<SUBSCRIBED_EVENT, HashSet<WebSocket>> = {
-  depth_update_btc_usd: new HashSet(),
-  depth_update_sol_usd: new HashSet(),
-};
-
 async function handleSubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
   if (zodBodyVerificationWebSocket(subscribeEventSchema, req, ws)) {
     const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
 
+    //
+
     switch (eventType) {
       case "depth_update_btc_usd":
-        eventSubscriptions.depth_update_btc_usd.insert(ws);
+        engine.subscribeEvent(eventType, ws);
         break;
       case "depth_update_sol_usd":
-        eventSubscriptions.depth_update_sol_usd.insert(ws);
+        engine.subscribeEvent(eventType, ws);
         break;
 
       default:
@@ -309,10 +305,10 @@ async function handleUnsubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
 
     switch (eventType) {
       case "depth_update_btc_usd":
-        eventSubscriptions.depth_update_btc_usd.eraseElementByKey(ws);
+        engine.unsubscribeEvent(eventType, ws);
         break;
       case "depth_update_sol_usd":
-        eventSubscriptions.depth_update_sol_usd.eraseElementByKey(ws);
+        engine.unsubscribeEvent(eventType, ws);
         break;
 
       default:

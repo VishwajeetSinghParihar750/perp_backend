@@ -1,6 +1,6 @@
 import "dotenv/config";
+import WebSocket from "ws";
 import { redisClient as redisClientGlobal } from "./db/redis/index.js";
-import { HashSet } from "js-sdsl";
 import type { RedisClientType } from "redis";
 
 type SUBSCRIBED_EVENT = "depth_update_sol_usd" | "depth_update_btc_usd";
@@ -8,14 +8,22 @@ type SUBSCRIBED_EVENT = "depth_update_sol_usd" | "depth_update_btc_usd";
 class EngineInterface {
   redisClient: RedisClientType;
 
-  eventSubscriptions: Record<SUBSCRIBED_EVENT, HashSet<WebSocket>> = {
-    depth_update_btc_usd: new HashSet(),
-    depth_update_sol_usd: new HashSet(),
+  engineSubscriptions: Set<SUBSCRIBED_EVENT> = new Set();
+  eventSubscriptions: Record<SUBSCRIBED_EVENT, Set<WebSocket>> = {
+    depth_update_btc_usd: new Set(),
+    depth_update_sol_usd: new Set(),
   };
 
   // saving resolve, reject functions of promise
   pendingRequests: Record<string, [(data: any) => void, (data: any) => void]> =
     {};
+
+  subscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+    this.eventSubscriptions[eventType].add(ws);
+  }
+  unsubscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+    this.eventSubscriptions[eventType].delete(ws);
+  }
 
   private setupEventSubscriptionHandling = async () => {
     console.log("setup event subsciption handling");
@@ -57,10 +65,14 @@ class EngineInterface {
             let { type, payload, requestId } = JSON.parse(message.data!);
             gotRequestId = requestId;
 
-            this.pendingRequests[requestId]?.[0]?.({ type, payload });
-            delete this.pendingRequests[requestId];
+            if (requestId) {
+              console.log(type, payload, requestId);
 
-            // TODO : else broadcast one
+              this.pendingRequests[requestId]?.[0]?.({ type, payload });
+              delete this.pendingRequests[requestId];
+            } else {
+              // TODO : else broadcast one, subbed event maybe
+            }
 
             // ack redis for messagie
             await this.redisClient.xAck(
