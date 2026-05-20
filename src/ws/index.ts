@@ -2,6 +2,7 @@ import { WebSocketServer } from "ws";
 import { handleWebSocketMessage } from "./handlers/index.js";
 import { verifyJwtToken } from "./utils/verification.js";
 import { createServer } from "node:http";
+import { sendMessageOnWebSocket } from "./utils/messaging.js";
 
 const httpServer = createServer();
 
@@ -25,9 +26,15 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
-    const jsonParsedData = JSON.parse(networkData.toString());
-    //
-    await handleWebSocketMessage(ws, jsonParsedData);
+    try {
+      const jsonParsedData = JSON.parse(networkData.toString());
+      await handleWebSocketMessage(ws, jsonParsedData);
+    } catch (error) {
+      sendMessageOnWebSocket(ws, {
+        type: "error",
+        payload: "wrong message format",
+      });
+    }
   });
 });
 

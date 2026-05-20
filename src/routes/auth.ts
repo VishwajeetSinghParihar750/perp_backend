@@ -53,3 +53,4 @@ router.post("/signin", zodBodyVerification(signinSchema), async (req, res) => {
     res.status(500).json({ error: true, payload: "server error" });
   }
 });
+export { router };

@@ -328,6 +328,7 @@ async function handleUnsubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
 }
 
 const handleWebSocketMessage = async (ws: WebSocket, request: WS_REQUEST) => {
+  console.log(request);
   switch (request.type) {
     case "subscribe_event":
       await handleSubscribeEventRequest(request, ws);

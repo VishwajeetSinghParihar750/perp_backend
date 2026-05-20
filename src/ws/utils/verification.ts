@@ -7,7 +7,9 @@ function verifyJwtToken(ws: WebSocket, req: IncomingMessage): boolean {
   //
   try {
     if (!req.url) return false;
+
     const url = new URL(req.url, "http://anythingWorksHere");
+
     const jwt_token = url.searchParams.get("jwt_token");
 
     if (!jwt_token) return false;
