@@ -48,39 +48,32 @@ class EngineInterface {
       [{ id: "$", key: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME! }],
       { BLOCK: 0, COUNT: 100 },
     );
+    if (xreadRes)
+      for (let streamReadResponse of xreadRes) {
+        for (const { id, message } of streamReadResponse.messages) {
+          // it has a request id , means it was personal
+          let gotRequestId = "";
+          try {
+            let { type, payload, requestId } = JSON.parse(message.data!);
+            gotRequestId = requestId;
 
-    console.log("xreadRes ", xreadRes);
+            this.pendingRequests[requestId]?.[0]?.({ type, payload });
+            delete this.pendingRequests[requestId];
 
-    // for (let streamReadResponse of xreadRes as any) {
-    //   for (const { id, message } of streamReadResponse.messages) {
-    //     let subscriptions =
-    //       this.eventSubscriptions[streamReadResponse.name as SUBSCRIBED_EVENT];
+            // TODO : else broadcast one
 
-    //     if (!subscriptions.empty()) {
-    //       const {
-    //         offset,
-    //         data,
-    //       }: {
-    //         offset: number;
-    //         data: { price: number; qty: number }[];
-    //       } = message;
-
-    //       subscriptions.forEach((ws) => {
-    //         sendMessageOnWebSocket(ws, {
-    //           payload: { offset, data },
-    //           type: streamReadResponse.name as SUBSCRIBED_EVENT,
-    //         });
-    //       });
-    //     }
-
-    //     // ack redis for messagie
-    //     await this.redisClient.xAck(
-    //       streamReadResponse.name, // would be stream name
-    //       process.env.REDIS_ENGINE_UPDATES_CONSUMER_GROUP_NAME!,
-    //       id,
-    //     );
-    //   }
-    // }
+            // ack redis for messagie
+            await this.redisClient.xAck(
+              streamReadResponse.name, // would be stream name
+              process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
+              id,
+            );
+          } catch (error) {
+            console.log("error in parsing engine message", error);
+            this.pendingRequests[gotRequestId]?.[1]?.(error);
+          }
+        }
+      }
 
     // here resolve the requests
     // maybe TODO :maybe even timeout the resolver after some minutes, reject after 5 min of waiting maybe
