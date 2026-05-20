@@ -3,25 +3,39 @@ import WebSocket from "ws";
 import { redisClient as redisClientGlobal } from "./db/redis/index.js";
 import type { RedisClientType } from "redis";
 
-type SUBSCRIBED_EVENT = "depth_update_sol_usd" | "depth_update_btc_usd";
+type SUBSCRIBED_EVENT = "depth.updated.sol_usd" | "depth.updated.btc_usd";
 
 class EngineInterface {
   redisClient: RedisClientType;
 
   engineSubscriptions: Set<SUBSCRIBED_EVENT> = new Set();
   eventSubscriptions: Record<SUBSCRIBED_EVENT, Set<WebSocket>> = {
-    depth_update_btc_usd: new Set(),
-    depth_update_sol_usd: new Set(),
+    "depth.updated.btc_usd": new Set(),
+    "depth.updated.sol_usd": new Set(),
   };
 
   // saving resolve, reject functions of promise
   pendingRequests: Record<string, [(data: any) => void, (data: any) => void]> =
     {};
 
-  subscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+  async subscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+    let res = await this.getEngineResponseForRequest("subscribe_event", {
+      event: eventType,
+      stream: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
+    });
+
+    if (res.type == "error") throw Error();
+
     this.eventSubscriptions[eventType].add(ws);
   }
-  unsubscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+  async unsubscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+    let res = await this.getEngineResponseForRequest("unsubscribe_event", {
+      event: eventType,
+      stream: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
+    });
+
+    if (res.type == "error") throw Error();
+
     this.eventSubscriptions[eventType].delete(ws);
   }
 

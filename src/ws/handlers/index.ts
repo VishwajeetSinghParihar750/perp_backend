@@ -271,60 +271,68 @@ async function handleGetBalanceRequest(req: WS_REQUEST, ws: WebSocket) {
   }
 }
 
-type SUBSCRIBED_EVENT = "depth_update_sol_usd" | "depth_update_btc_usd";
+type SUBSCRIBED_EVENT = "depth.updated.sol_usd" | "depth.updated.btc_usd";
 
 async function handleSubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
   if (zodBodyVerificationWebSocket(subscribeEventSchema, req, ws)) {
-    const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
+    try {
+      const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
 
-    //
+      //
+      await engine.subscribeEvent(eventType, ws);
 
-    switch (eventType) {
-      case "depth_update_btc_usd":
-        engine.subscribeEvent(eventType, ws);
-        break;
-      case "depth_update_sol_usd":
-        engine.subscribeEvent(eventType, ws);
-        break;
+      switch (eventType) {
+        case "depth.updated.btc_usd":
+          engine.subscribeEvent(eventType, ws);
+          break;
+        case "depth.updated.sol_usd":
+          engine.subscribeEvent(eventType, ws);
+          break;
 
-      default:
-        break;
+        default:
+          break;
+      }
+
+      sendMessageOnWebSocket(ws, {
+        requestId: req.rqeuestId,
+        type: "event_subscribed",
+        payload: null,
+      });
+    } catch (error: any) {
+      sendMessageOnWebSocket(ws, {
+        type: "error",
+        payload: error.message,
+        requestId: req.rqeuestId,
+      });
     }
-
-    sendMessageOnWebSocket(ws, {
-      requestId: req.rqeuestId,
-      type: "event_subscribed",
-      payload: null,
-    });
   }
 }
 
 async function handleUnsubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
   if (zodBodyVerificationWebSocket(unsubscribeEventSchema, req, ws)) {
-    const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
+    try {
+      const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
 
-    switch (eventType) {
-      case "depth_update_btc_usd":
-        engine.unsubscribeEvent(eventType, ws);
-        break;
-      case "depth_update_sol_usd":
-        engine.unsubscribeEvent(eventType, ws);
-        break;
+      await engine.unsubscribeEvent(eventType, ws);
 
-      default:
-        break;
+      sendMessageOnWebSocket(ws, {
+        requestId: req.rqeuestId,
+        type: "event_unsubscribed",
+        payload: null,
+      });
+    } catch (error: any) {
+      sendMessageOnWebSocket(ws, {
+        type: "error",
+        payload: error.message,
+        requestId: req.rqeuestId,
+      });
     }
-
-    sendMessageOnWebSocket(ws, {
-      requestId: req.rqeuestId,
-      type: "event_unsubscribed",
-      payload: null,
-    });
   }
 }
 
 const handleWebSocketMessage = async (ws: WebSocket, request: WS_REQUEST) => {
   console.log(request);
+
   switch (request.type) {
     case "subscribe_event":
       await handleSubscribeEventRequest(request, ws);
