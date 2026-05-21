@@ -68,7 +68,7 @@ model Fills {
   quantity Decimal @db.Decimal(18,0)
 
   buyOrderId String
-  sellOrderId String
+  sellOrderId String  
   buyOrder Orders @relation(name: "buyOrder", fields: [buyOrderId], references: [id]) 
   sellOrder Orders @relation(name : "sellOrder",fields: [sellOrderId], references: [id])
 

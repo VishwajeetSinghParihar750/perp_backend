@@ -65,9 +65,17 @@ class EngineInterface {
     await this.setupEventSubscriptionHandling();
   };
 
-  async handleEngineMessages(redisClient: RedisClientType) {
+  async handleEngineMessages(
+    redisClient: RedisClientType,
+    lastRedisMessageId = "$",
+  ) {
     let xreadRes = await redisClient.xRead(
-      [{ id: "$", key: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME! }],
+      [
+        {
+          id: lastRedisMessageId,
+          key: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
+        },
+      ],
       { BLOCK: 0, COUNT: 100 },
     );
     if (xreadRes)
@@ -87,24 +95,18 @@ class EngineInterface {
             } else {
               // TODO : else broadcast one, subbed event maybe
             }
-
-            // ack redis for messagie
-            await this.redisClient.xAck(
-              streamReadResponse.name, // would be stream name
-              process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
-              id,
-            );
           } catch (error) {
             console.log("error in parsing engine message", error);
             this.pendingRequests[gotRequestId]?.[1]?.(error);
           }
+          lastRedisMessageId = id;
         }
       }
 
     // here resolve the requests
     // maybe TODO :maybe even timeout the resolver after some minutes, reject after 5 min of waiting maybe
 
-    this.handleEngineMessages(redisClient);
+    this.handleEngineMessages(redisClient, lastRedisMessageId);
   }
 
   private sendEngineRequest = async (
