@@ -2,6 +2,11 @@ import "dotenv/config";
 import WebSocket from "ws";
 import { redisClient as redisClientGlobal } from "./db/redis/index.js";
 import type { RedisClientType } from "redis";
+import type {
+  ENGINE_REQUEST,
+  ENGINE_REQUEST_TYPE,
+  ENGINE_RESPONSE,
+} from "./types/wsServer.js";
 
 type SUBSCRIBED_EVENT = "depth.updated.sol_usd" | "depth.updated.btc_usd";
 
@@ -84,7 +89,9 @@ class EngineInterface {
           // it has a request id , means it was personal
           let gotRequestId = "";
           try {
-            let { type, payload, requestId } = JSON.parse(message.data!);
+            let { type, payload, requestId } = JSON.parse(
+              message.data!,
+            ) as ENGINE_RESPONSE;
             gotRequestId = requestId;
 
             if (requestId) {
@@ -109,27 +116,21 @@ class EngineInterface {
     this.handleEngineMessages(redisClient, lastRedisMessageId);
   }
 
-  private sendEngineRequest = async (
-    requestId: string,
-    type: string,
-    payload: any,
-  ) => {
+  private sendEngineRequest = async (engineRequest: ENGINE_REQUEST) => {
     let res = await this.redisClient.xAdd(
       process.env.REDIS_ENGINE_SEND_STREAM_NAME!,
       "*",
       {
-        data: JSON.stringify({
-          requestId,
-          stream: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
-          type,
-          payload,
-        }),
+        data: JSON.stringify(engineRequest),
       },
     );
     console.log("res", res);
   };
 
-  getEngineResponseForRequest = async (type: string, payload: any) => {
+  getEngineResponseForRequest = async (
+    type: ENGINE_REQUEST_TYPE,
+    payload: any,
+  ) => {
     let requestId = crypto.randomUUID();
     // wait for it before you send request
 
@@ -139,7 +140,12 @@ class EngineInterface {
       },
     );
 
-    await this.sendEngineRequest(requestId, type, payload);
+    await this.sendEngineRequest({
+      requestId,
+      type,
+      payload,
+      stream: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
+    });
     return promiseToReturn;
   };
 }

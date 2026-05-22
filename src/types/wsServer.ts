@@ -8,6 +8,8 @@ type WS_REQUEST_TYPE =
   | "get_depth"
   | "get_orders"
   | "get_order"
+  | "get_position"
+  | "get_orderbook"
   | "get_fills";
 
 type WS_RESPONSE_TYPE =
@@ -19,11 +21,40 @@ type WS_RESPONSE_TYPE =
   | "balance_updated"
   | "depth"
   | "orders"
+  | "orderbook"
   | "order"
   | "fills"
+  | "position"
   | "error" // for anything that did not succeed
   | "depth_update_btc_usd"
   | "depth_update_sol_usd";
+
+type ENGINE_REQUEST_TYPE =
+  | "create_order"
+  | "cancel_order"
+  | "get_orderbook"
+  | "get_balance"
+  | "get_position"
+  | "add_balance"
+  | "get_depth"
+  | "get_orders"
+  | "get_order"
+  | "subscribe_event"
+  | "unsubscribe_event";
+
+type ENGINE_RESPONSE_TYPE =
+  | "order_created"
+  | "order_cancelled"
+  | "orderbook"
+  | "event_subscribed"
+  | "event_unsubscribed"
+  | "balance"
+  | "balance_updated"
+  | "depth"
+  | "orders"
+  | "order"
+  | "position"
+  | "error"; // for anything that did not succeed
 
 type WS_REQUEST = {
   type: WS_REQUEST_TYPE;
@@ -36,4 +67,25 @@ type WS_RESPONSE = {
   requestId?: string;
 };
 
-export type { WS_REQUEST, WS_REQUEST_TYPE, WS_RESPONSE, WS_RESPONSE_TYPE };
+type ENGINE_REQUEST = {
+  stream: string;
+  requestId: string;
+  type: ENGINE_REQUEST_TYPE;
+  payload?: any;
+};
+type ENGINE_RESPONSE = {
+  requestId: string;
+  type: ENGINE_RESPONSE_TYPE;
+  payload?: any;
+};
+
+export type {
+  WS_REQUEST,
+  WS_REQUEST_TYPE,
+  WS_RESPONSE,
+  WS_RESPONSE_TYPE,
+  ENGINE_REQUEST,
+  ENGINE_REQUEST_TYPE,
+  ENGINE_RESPONSE,
+  ENGINE_RESPONSE_TYPE,
+};

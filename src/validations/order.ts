@@ -9,8 +9,17 @@ const createOrderSchema = z.object({
   price: z.number().optional(),
 });
 
+const getOrderbookSchema = z.object({
+  symbol: CURRENCY_SYMBOL,
+});
 const getOrderSchema = z.object({ orderId: z.string() });
 const deleteOrderSchema = z.object({ orderId: z.string() });
 const getDepthSchema = z.object({ symbol: CURRENCY_SYMBOL });
 
-export { createOrderSchema, getOrderSchema, deleteOrderSchema, getDepthSchema };
+export {
+  createOrderSchema,
+  getOrderSchema,
+  deleteOrderSchema,
+  getDepthSchema,
+  getOrderbookSchema,
+};

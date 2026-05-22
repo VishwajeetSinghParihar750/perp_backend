@@ -9,6 +9,7 @@ import {
   createOrderSchema,
   deleteOrderSchema,
   getDepthSchema,
+  getOrderbookSchema,
   getOrderSchema,
 } from "../../validations/order.js";
 import { sendMessageOnWebSocket } from "../utils/messaging.js";
@@ -17,6 +18,7 @@ import {
   unsubscribeEventSchema,
 } from "../../validations/subscribeEvent.js";
 import EngineInterface from "../../engineInterface.js";
+import { getPositionSchema } from "../../validations/positions.js";
 
 const engine = new EngineInterface();
 
@@ -186,6 +188,7 @@ async function handleGetOrdersRequest(req: WS_REQUEST, ws: WebSocket) {
   try {
     const { type: resType, payload } = await engine.getEngineResponseForRequest(
       "get_orders",
+
       {},
     );
 
@@ -210,25 +213,82 @@ async function handleGetOrdersRequest(req: WS_REQUEST, ws: WebSocket) {
   }
 }
 
+async function handleGetOrderbookRequest(req: WS_REQUEST, ws: WebSocket) {
+  if (zodBodyVerificationWebSocket(getOrderbookSchema, req, ws))
+    try {
+      const { type: resType, payload } =
+        await engine.getEngineResponseForRequest("get_orderbook", {
+          symbol: req.payload.symbol,
+        });
+
+      if (resType == "error") {
+        sendMessageOnWebSocket(ws, {
+          payload,
+          requestId: req.rqeuestId,
+          type: "error",
+        });
+      } else
+        sendMessageOnWebSocket(ws, {
+          payload,
+          requestId: req.rqeuestId,
+          type: "orderbook",
+        });
+    } catch (error) {
+      sendMessageOnWebSocket(ws, {
+        type: "error",
+        payload: "INTERNAL_SERVER_ERROR",
+        requestId: req.rqeuestId,
+      });
+    }
+}
+
+async function handleGetPositionsRequest(req: WS_REQUEST, ws: WebSocket) {
+  if (zodBodyVerificationWebSocket(getPositionSchema, req, ws))
+    try {
+      const { type: resType, payload } =
+        await engine.getEngineResponseForRequest("get_position", {
+          symbol: req.payload?.symbol,
+        });
+
+      if (resType == "error") {
+        sendMessageOnWebSocket(ws, {
+          payload,
+          requestId: req.rqeuestId,
+          type: "error",
+        });
+      } else
+        sendMessageOnWebSocket(ws, {
+          payload,
+          requestId: req.rqeuestId,
+          type: "position",
+        });
+    } catch (error) {
+      sendMessageOnWebSocket(ws, {
+        type: "error",
+        payload: "INTERNAL_SERVER_ERROR",
+        requestId: req.rqeuestId,
+      });
+    }
+}
+
 async function handleGetFillsRequest(req: WS_REQUEST, ws: WebSocket) {
   try {
-    const { type: resType, payload } = await engine.getEngineResponseForRequest(
-      "get_fills",
-      {},
-    );
-
-    if (resType == "error") {
-      sendMessageOnWebSocket(ws, {
-        payload,
-        requestId: req.rqeuestId,
-        type: "error",
-      });
-    } else
-      sendMessageOnWebSocket(ws, {
-        payload,
-        requestId: req.rqeuestId,
-        type: "fills",
-      });
+    // const { type: resType, payload } = await engine.getEngineResponseForRequest(
+    //   "get_fills",
+    //   {},
+    // );
+    // if (resType == "error") {
+    //   sendMessageOnWebSocket(ws, {
+    //     payload,
+    //     requestId: req.rqeuestId,
+    //     type: "error",
+    //   });
+    // } else
+    //   sendMessageOnWebSocket(ws, {
+    //     payload,
+    //     requestId: req.rqeuestId,
+    //     type: "fills",
+    //   });
   } catch (error) {
     sendMessageOnWebSocket(ws, {
       type: "error",
@@ -336,6 +396,12 @@ const handleWebSocketMessage = async (ws: WebSocket, request: WS_REQUEST) => {
   switch (request.type) {
     case "subscribe_event":
       await handleSubscribeEventRequest(request, ws);
+      break;
+    case "get_position":
+      await handleGetPositionsRequest(request, ws);
+      break;
+    case "get_orderbook":
+      await handleGetOrderbookRequest(request, ws);
       break;
     case "unsubscribe_event":
       await handleUnsubscribeEventRequest(request, ws);
