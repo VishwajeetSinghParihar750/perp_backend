@@ -1,7 +1,9 @@
 import z from "zod";
 
 const SUBSCRIBED_EVENT = z.union([
-  z.literal("depth_update_sol_usd", "depth_update_btc_usd"),
+  z.literal("depth.updated.sol_usd"),
+  z.literal("depth.updated.btc_usd"),
+  z.literal("depth.updated.eth_usd"),
 ]);
 
 const subscribeEventSchema = z.object({

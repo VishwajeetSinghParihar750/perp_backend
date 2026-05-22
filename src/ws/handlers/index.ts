@@ -19,6 +19,7 @@ import {
 } from "../../validations/subscribeEvent.js";
 import EngineInterface from "../../engineInterface.js";
 import { getPositionSchema } from "../../validations/positions.js";
+import type { ENGINE_EVENT_TYPE } from "../../types/engineEvents/event.js";
 
 const engine = new EngineInterface();
 
@@ -331,12 +332,10 @@ async function handleGetBalanceRequest(req: WS_REQUEST, ws: WebSocket) {
   }
 }
 
-type SUBSCRIBED_EVENT = "depth.updated.sol_usd" | "depth.updated.btc_usd";
-
 async function handleSubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
   if (zodBodyVerificationWebSocket(subscribeEventSchema, req, ws)) {
     try {
-      const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
+      const { eventType }: { eventType: ENGINE_EVENT_TYPE } = req.payload;
 
       //
       await engine.subscribeEvent(eventType, ws);
@@ -371,7 +370,7 @@ async function handleSubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
 async function handleUnsubscribeEventRequest(req: WS_REQUEST, ws: WebSocket) {
   if (zodBodyVerificationWebSocket(unsubscribeEventSchema, req, ws)) {
     try {
-      const { eventType }: { eventType: SUBSCRIBED_EVENT } = req.payload;
+      const { eventType }: { eventType: ENGINE_EVENT_TYPE } = req.payload;
 
       await engine.unsubscribeEvent(eventType, ws);
 

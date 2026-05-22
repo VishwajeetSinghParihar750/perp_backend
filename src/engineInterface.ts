@@ -7,23 +7,20 @@ import type {
   ENGINE_REQUEST_TYPE,
   ENGINE_RESPONSE,
 } from "./types/wsServer.js";
-
-type SUBSCRIBED_EVENT = "depth.updated.sol_usd" | "depth.updated.btc_usd";
+import type { ENGINE_EVENT_TYPE } from "./types/engineEvents/event.js";
+import { sendMessageOnWebSocket } from "./ws/utils/messaging.js";
 
 class EngineInterface {
   redisClient: RedisClientType;
 
-  engineSubscriptions: Set<SUBSCRIBED_EVENT> = new Set();
-  eventSubscriptions: Record<SUBSCRIBED_EVENT, Set<WebSocket>> = {
-    "depth.updated.btc_usd": new Set(),
-    "depth.updated.sol_usd": new Set(),
-  };
+  engineSubscriptions: Set<ENGINE_EVENT_TYPE> = new Set();
+  eventSubscriptions: Partial<Record<ENGINE_EVENT_TYPE, Set<WebSocket>>> = {};
 
   // saving resolve, reject functions of promise
   pendingRequests: Record<string, [(data: any) => void, (data: any) => void]> =
     {};
 
-  async subscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+  async subscribeEvent(eventType: ENGINE_EVENT_TYPE, ws: WebSocket) {
     let res = await this.getEngineResponseForRequest("subscribe_event", {
       event: eventType,
       stream: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
@@ -31,9 +28,12 @@ class EngineInterface {
 
     if (res.type == "error") throw Error();
 
+    if (!this.eventSubscriptions[eventType])
+      this.eventSubscriptions[eventType] = new Set();
+
     this.eventSubscriptions[eventType].add(ws);
   }
-  async unsubscribeEvent(eventType: SUBSCRIBED_EVENT, ws: WebSocket) {
+  async unsubscribeEvent(eventType: ENGINE_EVENT_TYPE, ws: WebSocket) {
     let res = await this.getEngineResponseForRequest("unsubscribe_event", {
       event: eventType,
       stream: process.env.REDIS_ENGINE_RECEIVE_STREAM_NAME!,
@@ -41,10 +41,10 @@ class EngineInterface {
 
     if (res.type == "error") throw Error();
 
-    this.eventSubscriptions[eventType].delete(ws);
+    this.eventSubscriptions[eventType]?.delete(ws);
   }
 
-  private setupEventSubscriptionHandling = async () => {
+  private setupEventHandling = async () => {
     console.log("setup event subsciption handling");
     this.redisClient.on("error", (err) => {
       console.log("redis error : ", err);
@@ -67,7 +67,13 @@ class EngineInterface {
 
   initialize = async () => {
     console.log("INITIALIZING REDIS SUBSCRIPTION HANDLING");
-    await this.setupEventSubscriptionHandling();
+    await this.setupEventHandling();
+  };
+
+  private broadcastEvent = (type: ENGINE_EVENT_TYPE, data: any) => {
+    this.eventSubscriptions[type]?.forEach((ws) => {
+      sendMessageOnWebSocket(ws, { type, data });
+    });
   };
 
   async handleEngineMessages(
@@ -92,6 +98,7 @@ class EngineInterface {
             let { type, payload, requestId } = JSON.parse(
               message.data!,
             ) as ENGINE_RESPONSE;
+
             gotRequestId = requestId;
 
             if (requestId) {
@@ -99,8 +106,8 @@ class EngineInterface {
 
               this.pendingRequests[requestId]?.[0]?.({ type, payload });
               delete this.pendingRequests[requestId];
-            } else {
-              // TODO : else broadcast one, subbed event maybe
+            } else if (type != "error") {
+              this.broadcastEvent(payload.type, payload.data);
             }
           } catch (error) {
             console.log("error in parsing engine message", error);
